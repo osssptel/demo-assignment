@@ -1,0 +1,58 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: airflow
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: airflow
+  syncPolicy:
+    automated:
+      prune: true
+    syncOptions:
+    - CreateNamespace=true
+  source:
+    chart: airflow
+    repoURL: https://airflow.apache.org
+    targetRevision: 1.15.0
+    helm:
+      values: |
+        webserver:
+          service:
+            type: LoadBalancer
+            annotations:
+              service.beta.kubernetes.io/aws-load-balancer-internal: "false"
+              service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+              service.beta.kubernetes.io/aws-load-balancer-type: nlb
+              service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: instance
+        createUserJob:
+          useHelmHooks: false
+          applyCustomEnv: false
+        migrateDatabaseJob:
+          useHelmHooks: false
+          applyCustomEnv: false
+          jobAnnotations:
+            argocd.argoproj.io/hook: Sync
+        useStandardNaming: true
+        extraEnv: |
+          - name: AIRFLOW__CORE__LOAD_EXAMPLES
+            value: 'True'
+        postgresql:
+          global:
+            storageClass: gp2
+        workers:
+          persistence:
+            storageClassName: gp2
+        triggerer:
+          persistence:
+            storageClassName: gp2
+        redis:
+          persistence:
+            storageClassName: gp2
+        dags:
+          persistence:
+            storageClassName: gp2
